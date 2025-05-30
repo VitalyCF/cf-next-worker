@@ -1,21 +1,33 @@
-name: Deploy to Cloudflare Workers
+name: Deploy to Cloudflare Workers (Next.js)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      # 1) ставим pnpm (та же версия, что указана в package.json)
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+          run_install: false
+
+      # 2) Node + cache для pnpm
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npm install -g wrangler
-      - run: wrangler deploy
+          cache: 'pnpm'
+
+      # 3) ставим зависимости и билдим проект
+      - run: pnpm install
+      - run: pnpm run build          # скрипт build есть в шаблоне
+
+      # 4) деплой через wrangler
+      - run: pnpm dlx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
