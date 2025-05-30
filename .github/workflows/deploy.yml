@@ -1,33 +1,39 @@
 name: Deploy to Cloudflare Workers (Next.js)
 
+# ────── когда запускать workflow ──────
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main          # каждый пуш в main
+  workflow_dispatch:  # и возможность «Run workflow» вручную из UI
 
+# ────── единственная job ──────
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1) забираем код репозитория
       - uses: actions/checkout@v4
 
-      # 1) ставим pnpm (та же версия, что указана в package.json)
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 8
-          run_install: false
-
-      # 2) Node + cache для pnpm
+      # 2) ставим Node .js 20 + кешируем node_modules
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: npm
 
-      # 3) ставим зависимости и билдим проект
-      - run: pnpm install
-      - run: pnpm run build          # скрипт build есть в шаблоне
+      # 3) устанавливаем зависимости строго по package-lock.json
+      - name: Install dependencies
+        run: npm ci
 
-      # 4) деплой через wrangler
-      - run: pnpm dlx wrangler deploy
+      # 4) собираем проект (скрипт build есть в шаблоне)
+      - name: Build Next.js
+        run: npm run build
+
+      # 5) деплоим с помощью Wrangler
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # если нужно, добавьте другие секреты, например:
+          # CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
